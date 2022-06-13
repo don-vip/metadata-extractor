@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 Drew Noakes and contributors
+ * Copyright 2002-2022 Drew Noakes and contributors
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@ import com.drew.imaging.jpeg.JpegMetadataReader;
 import com.drew.imaging.jpeg.JpegProcessingException;
 import com.drew.imaging.tiff.TiffProcessingException;
 import com.drew.imaging.tiff.TiffReader;
+import com.drew.imaging.tiff.TiffReaderContext;
+import com.drew.imaging.tiff.TiffStandard;
 import com.drew.lang.BufferBoundsException;
 import com.drew.lang.ByteArrayReader;
 import com.drew.lang.Charsets;
@@ -40,7 +42,37 @@ import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.StringValue;
 import com.drew.metadata.apple.AppleRunTimeReader;
-import com.drew.metadata.exif.makernotes.*;
+import com.drew.metadata.exif.makernotes.AppleMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.CanonMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.CasioType1MakernoteDirectory;
+import com.drew.metadata.exif.makernotes.CasioType2MakernoteDirectory;
+import com.drew.metadata.exif.makernotes.FujifilmMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.KodakMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.KyoceraMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.LeicaMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.LeicaType5MakernoteDirectory;
+import com.drew.metadata.exif.makernotes.NikonType1MakernoteDirectory;
+import com.drew.metadata.exif.makernotes.NikonType2MakernoteDirectory;
+import com.drew.metadata.exif.makernotes.OlympusCameraSettingsMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.OlympusEquipmentMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.OlympusFocusInfoMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.OlympusImageProcessingMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.OlympusMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.OlympusRawDevelopment2MakernoteDirectory;
+import com.drew.metadata.exif.makernotes.OlympusRawDevelopmentMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.OlympusRawInfoMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.PanasonicMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.PentaxMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.ReconyxHyperFire2MakernoteDirectory;
+import com.drew.metadata.exif.makernotes.ReconyxHyperFireMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.ReconyxUltraFireMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.RicohMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.SamsungType2MakernoteDirectory;
+import com.drew.metadata.exif.makernotes.SanyoMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.SigmaMakernoteDirectory;
+import com.drew.metadata.exif.makernotes.SonyTag9050bDirectory;
+import com.drew.metadata.exif.makernotes.SonyType1MakernoteDirectory;
+import com.drew.metadata.exif.makernotes.SonyType6MakernoteDirectory;
 import com.drew.metadata.icc.IccReader;
 import com.drew.metadata.iptc.IptcReader;
 import com.drew.metadata.photoshop.PhotoshopReader;
@@ -62,15 +94,18 @@ public class ExifTiffHandler extends DirectoryTiffHandler
         super(metadata, parentDirectory);
     }
 
-    public void setTiffMarker(int marker) throws TiffProcessingException
+    @Override
+	public TiffStandard processTiffMarker(int marker) throws TiffProcessingException
     {
-        final int standardTiffMarker = 0x002A;
-        final int olympusRawTiffMarker = 0x4F52; // for ORF files
-        final int olympusRawTiffMarker2 = 0x5352; // for ORF files
+        final int standardTiffMarker     = 0x002A;
+        final int bigTiffMarker          = 0x002B;
+        final int olympusRawTiffMarker   = 0x4F52; // for ORF files
+        final int olympusRawTiffMarker2  = 0x5352; // for ORF files
         final int panasonicRawTiffMarker = 0x0055; // for RW2 files
 
         switch (marker) {
             case standardTiffMarker:
+            case bigTiffMarker:
             case olympusRawTiffMarker:      // TODO implement an IFD0, if there is one
             case olympusRawTiffMarker2:     // TODO implement an IFD0, if there is one
                 pushDirectory(ExifIFD0Directory.class);
@@ -81,9 +116,14 @@ public class ExifTiffHandler extends DirectoryTiffHandler
             default:
                 throw new TiffProcessingException(String.format("Unexpected TIFF marker: 0x%X", marker));
         }
+
+        return marker == bigTiffMarker
+                ? TiffStandard.BIG_TIFF
+                : TiffStandard.TIFF;
     }
 
-    public boolean tryEnterSubIfd(int tagId)
+    @Override
+	public boolean tryEnterSubIfd(int tagId)
     {
         if (tagId == ExifDirectoryBase.TAG_SUB_IFD_OFFSET) {
             pushDirectory(ExifSubIFDDirectory.class);
@@ -139,7 +179,8 @@ public class ExifTiffHandler extends DirectoryTiffHandler
         return false;
     }
 
-    public boolean hasFollowerIfd()
+    @Override
+	public boolean hasFollowerIfd()
     {
         // In Exif, the only known 'follower' IFD is the thumbnail one, however this may not be the case.
         // UPDATE: In multipage TIFFs, the 'follower' IFD points to the next image in the set
@@ -162,7 +203,8 @@ public class ExifTiffHandler extends DirectoryTiffHandler
         return false;
     }
 
-    @Nullable
+    @Override
+	@Nullable
     public Long tryCustomProcessFormat(final int tagId, final int formatCode, final long componentCount)
     {
         if (formatCode == 13)
@@ -175,14 +217,15 @@ public class ExifTiffHandler extends DirectoryTiffHandler
         return null;
     }
 
-    public boolean customProcessTag(final int tagOffset,
-                                    final @NotNull Set<Integer> processedIfdOffsets,
-                                    final int tiffHeaderOffset,
-                                    final @NotNull RandomAccessReader reader,
+    @Override
+	public boolean customProcessTag(@NotNull final TiffReaderContext context,
                                     final int tagId,
+                                    final int valueOffset,
                                     final int byteCount) throws IOException
     {
         assert(_currentDirectory != null);
+
+        RandomAccessReader reader = context.getReader();
 
         // Some 0x0000 tags have a 0 byteCount. Determine whether it's bad.
         if (tagId == 0) {
@@ -198,14 +241,14 @@ public class ExifTiffHandler extends DirectoryTiffHandler
 
         // Custom processing for the Makernote tag
         if (tagId == ExifSubIFDDirectory.TAG_MAKERNOTE && _currentDirectory instanceof ExifSubIFDDirectory) {
-            return processMakernote(tagOffset, processedIfdOffsets, tiffHeaderOffset, reader);
+            return processMakernote(valueOffset, processedIfdOffsets, reader);
         }
 
         // Custom processing for embedded IPTC data
         if (tagId == ExifSubIFDDirectory.TAG_IPTC_NAA && _currentDirectory instanceof ExifIFD0Directory) {
             // NOTE Adobe sets type 4 for IPTC instead of 7
-            if (reader.getInt8(tagOffset) == 0x1c) {
-                final byte[] iptcBytes = reader.getBytes(tagOffset, byteCount);
+            if (reader.getInt8(valueOffset) == 0x1c) {
+                final byte[] iptcBytes = reader.getBytes(valueOffset, byteCount);
                 new IptcReader().extract(new SequentialByteArrayReader(iptcBytes), _metadata, iptcBytes.length, _currentDirectory);
                 return true;
             }
@@ -214,27 +257,27 @@ public class ExifTiffHandler extends DirectoryTiffHandler
 
         // Custom processing for ICC Profile data
         if (tagId == ExifSubIFDDirectory.TAG_INTER_COLOR_PROFILE) {
-            final byte[] iccBytes = reader.getBytes(tagOffset, byteCount);
+            final byte[] iccBytes = reader.getBytes(valueOffset, byteCount);
             new IccReader().extract(new ByteArrayReader(iccBytes), _metadata, _currentDirectory);
             return true;
         }
 
         // Custom processing for Photoshop data
         if (tagId == ExifSubIFDDirectory.TAG_PHOTOSHOP_SETTINGS && _currentDirectory instanceof ExifIFD0Directory) {
-            final byte[] photoshopBytes = reader.getBytes(tagOffset, byteCount);
+            final byte[] photoshopBytes = reader.getBytes(valueOffset, byteCount);
             new PhotoshopReader().extract(new SequentialByteArrayReader(photoshopBytes), byteCount, _metadata, _currentDirectory);
             return true;
         }
 
         // Custom processing for embedded XMP data
         if (tagId == ExifSubIFDDirectory.TAG_APPLICATION_NOTES && (_currentDirectory instanceof ExifIFD0Directory || _currentDirectory instanceof ExifSubIFDDirectory)) {
-            new XmpReader().extract(reader.getNullTerminatedBytes(tagOffset, byteCount), _metadata, _currentDirectory);
+            new XmpReader().extract(reader.getNullTerminatedBytes(valueOffset, byteCount), _metadata, _currentDirectory);
             return true;
         }
 
         // Custom processing for Apple RunTime tag
         if (tagId == AppleMakernoteDirectory.TAG_RUN_TIME && _currentDirectory instanceof AppleMakernoteDirectory) {
-            byte[] bytes = reader.getBytes(tagOffset, byteCount);
+            byte[] bytes = reader.getBytes(valueOffset, byteCount);
             new AppleRunTimeReader().extract(bytes, _metadata, _currentDirectory);
             return true;
         }
@@ -244,7 +287,7 @@ public class ExifTiffHandler extends DirectoryTiffHandler
             PrintIMDirectory printIMDirectory = new PrintIMDirectory();
             printIMDirectory.setParent(_currentDirectory);
             _metadata.addDirectory(printIMDirectory);
-            processPrintIM(printIMDirectory, tagOffset, reader, byteCount);
+            processPrintIM(printIMDirectory, valueOffset, reader, byteCount);
             return true;
         }
 
@@ -254,35 +297,35 @@ public class ExifTiffHandler extends DirectoryTiffHandler
             switch (tagId) {
                 case OlympusMakernoteDirectory.TAG_EQUIPMENT:
                     pushDirectory(OlympusEquipmentMakernoteDirectory.class);
-                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset);
+                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset, isBigTiff);
                     return true;
                 case OlympusMakernoteDirectory.TAG_CAMERA_SETTINGS:
                     pushDirectory(OlympusCameraSettingsMakernoteDirectory.class);
-                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset);
+                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset, isBigTiff);
                     return true;
                 case OlympusMakernoteDirectory.TAG_RAW_DEVELOPMENT:
                     pushDirectory(OlympusRawDevelopmentMakernoteDirectory.class);
-                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset);
+                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset, isBigTiff);
                     return true;
                 case OlympusMakernoteDirectory.TAG_RAW_DEVELOPMENT_2:
                     pushDirectory(OlympusRawDevelopment2MakernoteDirectory.class);
-                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset);
+                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset, isBigTiff);
                     return true;
                 case OlympusMakernoteDirectory.TAG_IMAGE_PROCESSING:
                     pushDirectory(OlympusImageProcessingMakernoteDirectory.class);
-                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset);
+                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset, isBigTiff);
                     return true;
                 case OlympusMakernoteDirectory.TAG_FOCUS_INFO:
                     pushDirectory(OlympusFocusInfoMakernoteDirectory.class);
-                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset);
+                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset, isBigTiff);
                     return true;
                 case OlympusMakernoteDirectory.TAG_RAW_INFO:
                     pushDirectory(OlympusRawInfoMakernoteDirectory.class);
-                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset);
+                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset, isBigTiff);
                     return true;
                 case OlympusMakernoteDirectory.TAG_MAIN_INFO:
                     pushDirectory(OlympusMakernoteDirectory.class);
-                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset);
+                    TiffReader.processIfd(this, reader, processedIfdOffsets, tagOffset, tiffHeaderOffset, isBigTiff);
                     return true;
             }
         }
@@ -295,26 +338,26 @@ public class ExifTiffHandler extends DirectoryTiffHandler
                     PanasonicRawWbInfoDirectory dirWbInfo = new PanasonicRawWbInfoDirectory();
                     dirWbInfo.setParent(_currentDirectory);
                     _metadata.addDirectory(dirWbInfo);
-                    processBinary(dirWbInfo, tagOffset, reader, byteCount, false, 2);
+                    processBinary(dirWbInfo, valueOffset, reader, byteCount, false, 2);
                     return true;
                 case PanasonicRawIFD0Directory.TagWbInfo2:
                     PanasonicRawWbInfo2Directory dirWbInfo2 = new PanasonicRawWbInfo2Directory();
                     dirWbInfo2.setParent(_currentDirectory);
                     _metadata.addDirectory(dirWbInfo2);
-                    processBinary(dirWbInfo2, tagOffset, reader, byteCount, false, 3);
+                    processBinary(dirWbInfo2, valueOffset, reader, byteCount, false, 3);
                     return true;
                 case PanasonicRawIFD0Directory.TagDistortionInfo:
                     PanasonicRawDistortionDirectory dirDistort = new PanasonicRawDistortionDirectory();
                     dirDistort.setParent(_currentDirectory);
                     _metadata.addDirectory(dirDistort);
-                    processBinary(dirDistort, tagOffset, reader, byteCount, true, 1);
+                    processBinary(dirDistort, valueOffset, reader, byteCount, true, 1);
                     return true;
             }
         }
 
         // Panasonic RAW sometimes contains an embedded version of the data as a JPG file.
         if (tagId == PanasonicRawIFD0Directory.TagJpgFromRaw && _currentDirectory instanceof PanasonicRawIFD0Directory) {
-            byte[] jpegrawbytes = reader.getBytes(tagOffset, byteCount);
+            byte[] jpegrawbytes = reader.getBytes(valueOffset, byteCount);
 
             // Extract information from embedded image since it is metadata-rich
             ByteArrayInputStream jpegmem = new ByteArrayInputStream(jpegrawbytes);
@@ -334,7 +377,7 @@ public class ExifTiffHandler extends DirectoryTiffHandler
 
         if (_currentDirectory instanceof SonyType1MakernoteDirectory) {
             if (tagId == SonyType1MakernoteDirectory.TAG_9050B) {
-                byte[] bytes = reader.getBytes(tagOffset, byteCount);
+                byte[] bytes = reader.getBytes(valueOffset, byteCount);
                 SonyTag9050bDirectory directory = SonyTag9050bDirectory.read(bytes);
                 directory.setParent(_currentDirectory);
                 _metadata.addDirectory(directory);

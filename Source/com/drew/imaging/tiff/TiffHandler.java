@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 Drew Noakes and contributors
+ * Copyright 2002-2022 Drew Noakes and contributors
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -20,14 +20,12 @@
  */
 package com.drew.imaging.tiff;
 
-import com.drew.lang.RandomAccessReader;
 import com.drew.lang.Rational;
 import com.drew.lang.annotations.NotNull;
 import com.drew.lang.annotations.Nullable;
 import com.drew.metadata.StringValue;
 
 import java.io.IOException;
-import java.util.Set;
 
 /**
  * Interface of an class capable of handling events raised during the reading of a TIFF file
@@ -44,8 +42,12 @@ public interface TiffHandler
      * validation or perhaps differentiating the type of mapping to use for observed tags and IFDs.
      *
      * @param marker the 2-byte value found at position 2 of the TIFF header
+     *
+     * @return The TIFF standard via which to interpret the data stream.
+     *
+     * @throws TiffProcessingException if the value of {@code marker} is not supported
      */
-    void setTiffMarker(int marker) throws TiffProcessingException;
+	TiffStandard processTiffMarker(int marker) throws TiffProcessingException;
 
     boolean tryEnterSubIfd(int tagId);
     boolean hasFollowerIfd();
@@ -55,11 +57,9 @@ public interface TiffHandler
     @Nullable
     Long tryCustomProcessFormat(int tagId, int formatCode, long componentCount);
 
-    boolean customProcessTag(int tagOffset,
-                             @NotNull Set<Integer> processedIfdOffsets,
-                             int tiffHeaderOffset,
-                             @NotNull RandomAccessReader reader,
+    boolean customProcessTag(@NotNull TiffReaderContext context,
                              int tagId,
+                             int valueOffset,
                              int byteCount) throws IOException;
 
     void warn(@NotNull String message);
@@ -85,4 +85,8 @@ public interface TiffHandler
     void setInt32sArray(int tagId, @NotNull int[] array);
     void setInt32u(int tagId, long int32u);
     void setInt32uArray(int tagId, @NotNull long[] array);
+    void setInt64S(int tagId, long int64S);
+    void setInt64SArray(int tagId, long[] array);
+    void setInt64U(int tagId, long int64U);
+    void setInt64UArray(int tagId, long[] array);
 }

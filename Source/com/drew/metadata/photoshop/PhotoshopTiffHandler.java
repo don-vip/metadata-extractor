@@ -1,5 +1,6 @@
 package com.drew.metadata.photoshop;
 
+import com.drew.imaging.tiff.TiffReaderContext;
 import com.drew.lang.ByteArrayReader;
 import com.drew.lang.RandomAccessReader;
 import com.drew.lang.SequentialByteArrayReader;
@@ -36,13 +37,14 @@ public class PhotoshopTiffHandler extends ExifTiffHandler
         super(metadata, parentDirectory);
     }
 
-    public boolean customProcessTag(final int tagOffset,
-                                    final @NotNull Set<Integer> processedIfdOffsets,
+    @Override
+	public boolean customProcessTag(@NotNull final TiffReaderContext context,
                                     final int tiffHeaderOffset,
-                                    final @NotNull RandomAccessReader reader,
                                     final int tagId,
                                     final int byteCount) throws IOException
     {
+        RandomAccessReader reader = context.getReader();
+
         switch (tagId) {
             case TAG_XMP:
                 new XmpReader().extract(reader.getBytes(tagOffset, byteCount), _metadata);
@@ -55,7 +57,6 @@ public class PhotoshopTiffHandler extends ExifTiffHandler
                 return true;
         }
 
-
-        return super.customProcessTag(tagOffset, processedIfdOffsets, tiffHeaderOffset, reader, tagId, byteCount);
+        return super.customProcessTag(tagOffset, processedIfdOffsets, tiffHeaderOffset, reader, tagId, byteCount, context.isBigTiff());
     }
 }

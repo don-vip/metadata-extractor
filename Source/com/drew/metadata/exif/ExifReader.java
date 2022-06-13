@@ -47,20 +47,22 @@ public class ExifReader implements JpegSegmentMetadataReader
     /** Exif data stored in JPEG files' APP1 segment are preceded by this six character preamble "Exif\0\0". */
     public static final String JPEG_SEGMENT_PREAMBLE = "Exif\0\0";
 
-    @NotNull
+    @Override
+	@NotNull
     public Iterable<JpegSegmentType> getSegmentTypes()
     {
         return Collections.singletonList(JpegSegmentType.APP1);
     }
 
-    public void readJpegSegments(@NotNull final Iterable<byte[]> segments, @NotNull final Metadata metadata, @NotNull final JpegSegmentType segmentType)
+    @Override
+	public void readJpegSegments(@NotNull final Iterable<byte[]> segments, @NotNull final Metadata metadata, @NotNull final JpegSegmentType segmentType)
     {
         assert(segmentType == JpegSegmentType.APP1);
 
         for (byte[] segmentBytes : segments) {
             // Segment must have the expected preamble
             if (startsWithJpegExifPreamble(segmentBytes)) {
-                extract(new ByteArrayReader(segmentBytes), metadata, JPEG_SEGMENT_PREAMBLE.length());
+                extract(new ByteArrayReader(segmentBytes), metadata);
             }
         }
     }
@@ -72,20 +74,14 @@ public class ExifReader implements JpegSegmentMetadataReader
             new String(bytes, 0, JPEG_SEGMENT_PREAMBLE.length()).equals(JPEG_SEGMENT_PREAMBLE);
     }
 
-    /** Reads TIFF formatted Exif data from start of the specified {@link RandomAccessReader}. */
+    /** Reads TIFF formatted Exif data a specified offset within a {@link RandomAccessReader}. */
     public void extract(@NotNull final RandomAccessReader reader, @NotNull final Metadata metadata)
     {
-        extract(reader, metadata, 0);
-    }
-
-    /** Reads TIFF formatted Exif data a specified offset within a {@link RandomAccessReader}. */
-    public void extract(@NotNull final RandomAccessReader reader, @NotNull final Metadata metadata, int readerOffset)
-    {
-        extract(reader, metadata, readerOffset, null);
+        extract(reader, metadata, null);
     }
 
     /** Reads TIFF formatted Exif data at a specified offset within a {@link RandomAccessReader}. */
-    public void extract(@NotNull final RandomAccessReader reader, @NotNull final Metadata metadata, int readerOffset, @Nullable Directory parentDirectory)
+    public void extract(@NotNull final RandomAccessReader reader, @NotNull final Metadata metadata, @Nullable Directory parentDirectory)
     {
         ExifTiffHandler exifTiffHandler = new ExifTiffHandler(metadata, parentDirectory);
 
@@ -93,8 +89,7 @@ public class ExifReader implements JpegSegmentMetadataReader
             // Read the TIFF-formatted Exif data
             new TiffReader().processTiff(
                 reader,
-                exifTiffHandler,
-                readerOffset
+                exifTiffHandler
             );
         } catch (TiffProcessingException e) {
             exifTiffHandler.error("Exception processing TIFF data: " + e.getMessage());
