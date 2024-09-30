@@ -262,7 +262,7 @@ public class ExifTiffHandler extends DirectoryTiffHandler
                         _currentDirectory.addError("GeoTIFF key "+keyId+" with offset "+valueOffset+" and count "+valueCount+" extends beyond length of source value ("+sourceArray.length+")");
                     }
                 }
-                else
+                else if (sourceValue != null)
                 {
                     _currentDirectory.addError("GeoTIFF key "+keyId+" references tag "+sourceTagId+" which has unsupported type of "+sourceValue.getClass());
                 }
