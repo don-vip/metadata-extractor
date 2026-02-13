@@ -28,3 +28,17 @@ jobs:
         cache: maven
     - name: Build with Maven
       run: mvn -ntp -B -Dstyle.color=always package -Dgpg.skip=true --file pom.xml
+    - name: Generate SHA1 checksums
+      run: |
+        find . \( -name "pom.xml" -o -path "*/Output/maven/*.jar" \) -type f -print0 | while IFS= read -r -d '' file; do
+          sha1sum "$file" | awk '{print $1}' > "$file.sha1"
+        done
+    - name: Upload Maven artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: maven-artifacts-java-${{ matrix.java }}
+        path: |
+          **/pom.xml
+          **/pom.xml.sha1
+          **/Output/maven/*.jar
+          **/Output/maven/*.jar.sha1
