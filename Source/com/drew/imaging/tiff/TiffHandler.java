@@ -92,8 +92,8 @@ public interface TiffHandler
     void setInt32sArray(int tagId, @NotNull int[] array);
     void setInt32u(int tagId, long int32u);
     void setInt32uArray(int tagId, @NotNull long[] array);
-    void setInt64S(int tagId, long int64S);
-    void setInt64SArray(int tagId, @NotNull long[] array);
-    void setInt64U(int tagId, long int64U);
-    void setInt64UArray(int tagId, @NotNull long[] array);
+    void setInt64s(int tagId, long int64s);
+    void setInt64sArray(int tagId, @NotNull long[] array);
+    void setInt64u(int tagId, long int64u);
+    void setInt64uArray(int tagId, @NotNull long[] array);
 }

@@ -203,7 +203,7 @@ public class TiffReader
                 final int tagId = context.getReader().getUInt16(tagOffset);
 
                 final int formatCode = context.getReader().getUInt16(tagOffset + 2);
-                final TiffDataFormat format = TiffDataFormat.fromTiffFormatCode(formatCode, context.isBigTiff());
+                final TiffDataFormat format = TiffDataFormat.fromTiffFormatCode(formatCode);
 
                 final long componentCount = context.isBigTiff()
                         ? context.getReader().getUInt64(tagOffset + 4)
@@ -423,29 +423,23 @@ public class TiffReader
                 }
                 break;
             case TiffDataFormat.CODE_INT64_S:
-                if (componentCount == 1)
-                {
-                    handler.setInt64S(tagId, reader.getInt64(tagValueOffset));
-                }
-                else
-                {
+                if (componentCount == 1) {
+                    handler.setInt64s(tagId, reader.getInt64(tagValueOffset));
+                } else {
                     long[] array = new long[componentCount];
                     for (int i = 0; i < componentCount; i++)
-                        array[i] = reader.getInt64(tagValueOffset + i * 8);
-                    handler.setInt64SArray(tagId, array);
+                        array[i] = reader.getInt64(tagValueOffset + (i * 8));
+                    handler.setInt64sArray(tagId, array);
                 }
                 break;
             case TiffDataFormat.CODE_INT64_U:
-                if (componentCount == 1)
-                {
-                    handler.setInt64U(tagId, reader.getUInt64(tagValueOffset));
-                }
-                else
-                {
+                if (componentCount == 1) {
+                    handler.setInt64u(tagId, reader.getInt64(tagValueOffset));
+                } else {
                     long[] array = new long[componentCount];
                     for (int i = 0; i < componentCount; i++)
-                        array[i] = reader.getUInt64(tagValueOffset + i * 8);
-                    handler.setInt64UArray(tagId, array);
+                        array[i] = reader.getInt64(tagValueOffset + (i * 8));
+                    handler.setInt64uArray(tagId, array);
                 }
                 break;
             default:

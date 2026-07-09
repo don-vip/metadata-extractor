@@ -246,25 +246,26 @@ public abstract class DirectoryTiffHandler implements TiffHandler
     }
 
     @Override
-    public void setInt64S(int tagId, long int64S)
+    public void setInt64s(int tagId, long int64s)
     {
-        _currentDirectory.setLong(tagId, int64S);
+        _currentDirectory.setLong(tagId, int64s);
     }
 
     @Override
-    public void setInt64SArray(int tagId, @NotNull long[] array)
+    public void setInt64sArray(int tagId, @NotNull long[] array)
     {
         _currentDirectory.setObjectArray(tagId, array);
     }
 
     @Override
-    public void setInt64U(int tagId, long int64U)
+    public void setInt64u(int tagId, long int64u)
     {
-        _currentDirectory.setLong(tagId, int64U);
+        // values above Long.MAX_VALUE will wrap, but do not occur in practice
+        _currentDirectory.setLong(tagId, int64u);
     }
 
     @Override
-    public void setInt64UArray(int tagId, @NotNull long[] array)
+    public void setInt64uArray(int tagId, @NotNull long[] array)
     {
         _currentDirectory.setObjectArray(tagId, array);
     }
